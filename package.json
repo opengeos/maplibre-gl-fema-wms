@@ -1,6 +1,6 @@
 {
   "name": "maplibre-gl-fema-wms",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MapLibre GL JS plugin for searching and adding FEMA National Flood Hazard Layer (NFHL) WMS layers to a map",
   "type": "module",
   "main": "./dist/index.cjs",

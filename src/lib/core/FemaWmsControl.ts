@@ -342,7 +342,7 @@ export class FemaWmsControl extends PluginControl<FemaWmsEvent> {
     // Flood/water waves icon; stroke uses currentColor so the button stays
     // readable in both light and dark themes.
     return `
-        <svg viewBox="0 0 24 24" width="22" height="22" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M2 6.5c1.7 0 1.7 1.6 3.4 1.6S7 6.5 8.7 6.5s1.6 1.6 3.3 1.6 1.7-1.6 3.4-1.6 1.6 1.6 3.3 1.6 1.7-1.6 3.3-1.6"/>
           <path d="M2 11.5c1.7 0 1.7 1.6 3.4 1.6s1.6-1.6 3.3-1.6 1.6 1.6 3.3 1.6 1.7-1.6 3.4-1.6 1.6 1.6 3.3 1.6 1.7-1.6 3.3-1.6"/>
           <path d="M2 16.5c1.7 0 1.7 1.6 3.4 1.6s1.6-1.6 3.3-1.6 1.6 1.6 3.3 1.6 1.7-1.6 3.4-1.6 1.6 1.6 3.3 1.6 1.7-1.6 3.3-1.6"/>
