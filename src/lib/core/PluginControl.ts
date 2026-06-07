@@ -20,7 +20,10 @@ const DEFAULT_OPTIONS: Required<PluginControlOptions> = {
 /**
  * Event handlers map type
  */
-type EventHandlersMap = globalThis.Map<PluginControlEvent, Set<PluginControlEventHandler>>;
+type EventHandlersMap<TEvent extends string> = globalThis.Map<
+  TEvent,
+  Set<PluginControlEventHandler<TEvent>>
+>;
 
 /**
  * A template MapLibre GL control that can be customized for various plugin needs.
@@ -35,14 +38,14 @@ type EventHandlersMap = globalThis.Map<PluginControlEvent, Set<PluginControlEven
  * map.addControl(control, 'top-right');
  * ```
  */
-export class PluginControl implements IControl {
-  private _map?: MapLibreMap;
-  private _mapContainer?: HTMLElement;
-  private _container?: HTMLElement;
-  private _panel?: HTMLElement;
-  private _options: Required<PluginControlOptions>;
-  private _state: PluginState;
-  private _eventHandlers: EventHandlersMap = new globalThis.Map();
+export class PluginControl<TEvent extends string = PluginControlEvent> implements IControl {
+  protected _map?: MapLibreMap;
+  protected _mapContainer?: HTMLElement;
+  protected _container?: HTMLElement;
+  protected _panel?: HTMLElement;
+  protected _options: Required<PluginControlOptions>;
+  protected _state: PluginState;
+  private _eventHandlers: EventHandlersMap<TEvent | PluginControlEvent> = new globalThis.Map();
 
   // Panel positioning handlers
   private _resizeHandler: (() => void) | null = null;
@@ -109,7 +112,7 @@ export class PluginControl implements IControl {
       this._mapResizeHandler = null;
     }
     if (this._clickOutsideHandler) {
-      document.removeEventListener('click', this._clickOutsideHandler);
+      document.removeEventListener('pointerdown', this._clickOutsideHandler);
       this._clickOutsideHandler = null;
     }
 
@@ -189,7 +192,10 @@ export class PluginControl implements IControl {
    * @param event - The event type to listen for
    * @param handler - The callback function
    */
-  on(event: PluginControlEvent, handler: PluginControlEventHandler): void {
+  on(
+    event: TEvent | PluginControlEvent,
+    handler: PluginControlEventHandler<TEvent | PluginControlEvent>
+  ): void {
     if (!this._eventHandlers.has(event)) {
       this._eventHandlers.set(event, new Set());
     }
@@ -202,7 +208,10 @@ export class PluginControl implements IControl {
    * @param event - The event type
    * @param handler - The callback function to remove
    */
-  off(event: PluginControlEvent, handler: PluginControlEventHandler): void {
+  off(
+    event: TEvent | PluginControlEvent,
+    handler: PluginControlEventHandler<TEvent | PluginControlEvent>
+  ): void {
     this._eventHandlers.get(event)?.delete(handler);
   }
 
@@ -229,7 +238,7 @@ export class PluginControl implements IControl {
    *
    * @param event - The event type to emit
    */
-  private _emit(event: PluginControlEvent): void {
+  protected _emit(event: TEvent | PluginControlEvent): void {
     const handlers = this._eventHandlers.get(event);
     if (handlers) {
       const eventData = { type: event, state: this.getState() };
@@ -256,12 +265,7 @@ export class PluginControl implements IControl {
     toggleBtn.setAttribute('aria-label', this._options.title);
     toggleBtn.innerHTML = `
       <span class="plugin-control-icon">
-        <svg viewBox="0 0 24 24" width="22" height="22" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="3" width="7" height="7" rx="1"/>
-          <rect x="14" y="3" width="7" height="7" rx="1"/>
-          <rect x="3" y="14" width="7" height="7" rx="1"/>
-          <rect x="14" y="14" width="7" height="7" rx="1"/>
-        </svg>
+        ${this._getIconSvg()}
       </span>
     `;
     toggleBtn.addEventListener('click', () => this.toggle());
@@ -269,6 +273,25 @@ export class PluginControl implements IControl {
     container.appendChild(toggleBtn);
 
     return container;
+  }
+
+  /**
+   * Returns the SVG markup for the toggle button icon.
+   * Subclasses can override this to provide a custom icon. The icon should
+   * use `currentColor` (via CSS `stroke`/`fill`) so it stays readable in
+   * both light and dark themes.
+   *
+   * @returns The icon SVG markup
+   */
+  protected _getIconSvg(): string {
+    return `
+        <svg viewBox="0 0 24 24" width="22" height="22" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/>
+          <rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+    `;
   }
 
   /**
@@ -300,14 +323,10 @@ export class PluginControl implements IControl {
     header.appendChild(title);
     header.appendChild(closeBtn);
 
-    // Create content area
+    // Create content area, filled by the overridable _renderContent hook
     const content = document.createElement('div');
     content.className = 'plugin-control-content';
-    content.innerHTML = `
-      <p class="plugin-control-placeholder">
-        Add your custom plugin content here.
-      </p>
-    `;
+    this._renderContent(content);
 
     panel.appendChild(header);
     panel.appendChild(content);
@@ -316,10 +335,27 @@ export class PluginControl implements IControl {
   }
 
   /**
+   * Renders the panel content. The base implementation shows a placeholder;
+   * subclasses override this to provide their own UI.
+   *
+   * @param content - The panel's content element to populate
+   */
+  protected _renderContent(content: HTMLElement): void {
+    content.innerHTML = `
+      <p class="plugin-control-placeholder">
+        Add your custom plugin content here.
+      </p>
+    `;
+  }
+
+  /**
    * Setup event listeners for panel positioning and click-outside behavior.
    */
   private _setupEventListeners(): void {
-    // Click outside to close (check both container and panel since they're now separate)
+    // Click outside to close (check both container and panel since they're now separate).
+    // Uses pointerdown rather than click so that external UI (e.g. a React
+    // toggle button) can expand the panel on click without this handler
+    // immediately collapsing it again when the same event reaches document.
     this._clickOutsideHandler = (e: MouseEvent) => {
       const target = e.target as Node;
       if (
@@ -331,7 +367,7 @@ export class PluginControl implements IControl {
         this.collapse();
       }
     };
-    document.addEventListener('click', this._clickOutsideHandler);
+    document.addEventListener('pointerdown', this._clickOutsideHandler);
 
     // Update panel position on window resize
     this._resizeHandler = () => {
@@ -371,7 +407,7 @@ export class PluginControl implements IControl {
    * Update the panel position based on button location and control corner.
    * Positions the panel next to the button, expanding in the appropriate direction.
    */
-  private _updatePanelPosition(): void {
+  protected _updatePanelPosition(): void {
     if (!this._container || !this._panel || !this._mapContainer) return;
 
     // Get the toggle button (first child of container)
@@ -389,6 +425,7 @@ export class PluginControl implements IControl {
     const buttonRight = mapRect.right - buttonRect.right;
 
     const panelGap = 5; // Gap between button and panel
+    const edgeMargin = 10; // Minimum gap between panel and the map edge
 
     // Reset all positioning
     this._panel.style.top = '';
@@ -396,28 +433,37 @@ export class PluginControl implements IControl {
     this._panel.style.left = '';
     this._panel.style.right = '';
 
+    // Cap the panel height to the space between the button and the opposite
+    // map edge so it scrolls instead of overflowing on small screens
+    const panelOffset = buttonRect.height + panelGap;
+    const availableHeight =
+      position === 'top-left' || position === 'top-right'
+        ? mapRect.height - (buttonTop + panelOffset) - edgeMargin
+        : mapRect.height - (buttonBottom + panelOffset) - edgeMargin;
+    this._panel.style.maxHeight = `min(500px, ${Math.max(availableHeight, 100)}px)`;
+
     switch (position) {
       case 'top-left':
         // Panel expands down and to the right
-        this._panel.style.top = `${buttonTop + buttonRect.height + panelGap}px`;
+        this._panel.style.top = `${buttonTop + panelOffset}px`;
         this._panel.style.left = `${buttonLeft}px`;
         break;
 
       case 'top-right':
         // Panel expands down and to the left
-        this._panel.style.top = `${buttonTop + buttonRect.height + panelGap}px`;
+        this._panel.style.top = `${buttonTop + panelOffset}px`;
         this._panel.style.right = `${buttonRight}px`;
         break;
 
       case 'bottom-left':
         // Panel expands up and to the right
-        this._panel.style.bottom = `${buttonBottom + buttonRect.height + panelGap}px`;
+        this._panel.style.bottom = `${buttonBottom + panelOffset}px`;
         this._panel.style.left = `${buttonLeft}px`;
         break;
 
       case 'bottom-right':
         // Panel expands up and to the left
-        this._panel.style.bottom = `${buttonBottom + buttonRect.height + panelGap}px`;
+        this._panel.style.bottom = `${buttonBottom + panelOffset}px`;
         this._panel.style.right = `${buttonRight}px`;
         break;
     }

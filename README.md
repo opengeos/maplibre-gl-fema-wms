@@ -1,27 +1,164 @@
-# GeoLibre Plugin Template
+# maplibre-gl-fema-wms
 
-A template for creating GeoLibre Desktop plugins backed by MapLibre GL JS controls. It still includes the standalone MapLibre control and React wrapper so plugin authors can develop and test the control outside GeoLibre.
+A [MapLibre GL JS](https://maplibre.org/) plugin for searching and adding [FEMA National Flood Hazard Layer (NFHL)](https://www.fema.gov/flood-maps/national-flood-hazard-layer) WMS layers to a map. Ships as a compact, collapsible map control with TypeScript types and an optional React wrapper.
 
-[![npm version](https://img.shields.io/npm/v/geolibre-plugin-template.svg)](https://www.npmjs.com/package/geolibre-plugin-template)
+[![npm version](https://img.shields.io/npm/v/maplibre-gl-fema-wms.svg)](https://www.npmjs.com/package/maplibre-gl-fema-wms)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Open in CodeSandbox](https://img.shields.io/badge/Open%20in-CodeSandbox-blue?logo=codesandbox)](https://codesandbox.io/p/github/opengeos/geolibre-plugin-template)
-[![Open in StackBlitz](https://img.shields.io/badge/Open%20in-StackBlitz-blue?logo=stackblitz)](https://stackblitz.com/github/opengeos/geolibre-plugin-template)
 
 ## Features
 
-- **GeoLibre Bundle Output** - Builds a zip with root `plugin.json`, bundled ESM, and CSS for GeoLibre Desktop
-- **TypeScript Support** - Full TypeScript support with type definitions
-- **React Integration** - React wrapper component and custom hooks
-- **IControl Implementation** - Implements MapLibre's IControl interface
-- **Modern Build Setup** - Vite-based library and GeoLibre bundle builds
-- **Testing** - Vitest setup with React Testing Library
-- **CI/CD Ready** - GitHub Actions for npm publishing and GitHub Pages
+- **Layer search**: filter the NFHL layers (Flood Hazard Zones, FIRM Panels, LOMAs, Base Flood Elevations, and more) by name
+- **One-click add/remove**: each checked layer becomes its own MapLibre raster source and layer
+- **Per-layer opacity slider**
+- **Legend display**: per-layer `GetLegendGraphic` images, loaded on demand
+- **Feature info**: click the map to query active layers via `GetFeatureInfo` and view attributes in a popup
+- **Zoom to layer extent** from the capabilities bounding box
+- **Dark and light mode**: follows `prefers-color-scheme` automatically, or force a theme with a `dark`/`light` class
+- **Small-screen friendly**: the panel caps its size to the viewport and scrolls vertically
+- **Works with any WMS**: the FEMA NFHL endpoint is the default, but `url` accepts any WMS service
+- **TypeScript-first** with fully exported types, plus a React wrapper component
+- **GeoLibre Bundle Output**: builds a zip with root `plugin.json`, bundled ESM, and CSS for GeoLibre Desktop
 
 ## Installation
 
 ```bash
-npm install geolibre-plugin-template
+npm install maplibre-gl-fema-wms
 ```
+
+`maplibre-gl` (>= 3.0.0) is a peer dependency. React (>= 18) is optional and only needed for the React wrapper.
+
+## Quick Start
+
+### Vanilla JavaScript/TypeScript
+
+```typescript
+import maplibregl from "maplibre-gl";
+import { FemaWmsControl } from "maplibre-gl-fema-wms";
+import "maplibre-gl-fema-wms/style.css";
+
+const map = new maplibregl.Map({
+  container: "map",
+  style: "https://tiles.openfreemap.org/styles/positron",
+  center: [-95.37, 29.76], // Houston, TX
+  zoom: 11,
+});
+
+map.on("load", () => {
+  const control = new FemaWmsControl({
+    collapsed: false,
+    defaultLayers: ["12"], // Flood Hazard Zones
+  });
+
+  map.addControl(control, "top-right");
+});
+```
+
+### React
+
+```tsx
+import { FemaWmsControlReact } from "maplibre-gl-fema-wms/react";
+import "maplibre-gl-fema-wms/style.css";
+
+function MyMap({ map }) {
+  return (
+    <FemaWmsControlReact
+      map={map}
+      collapsed={false}
+      defaultLayers={["12"]}
+      onStateChange={(state) => console.log(state.activeLayers)}
+      onFeatureInfo={(result) => console.log(result.features)}
+    />
+  );
+}
+```
+
+## Options
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `url` | `string` | FEMA NFHL WMS | WMS endpoint. ArcGIS REST-style URLs (`.../arcgis/rest/services/...`) are normalized automatically. |
+| `version` | `'1.3.0' \| '1.1.1'` | `'1.3.0'` | WMS protocol version. |
+| `defaultLayers` | `string[]` | `[]` | Layer names to activate once capabilities load (e.g. `['12']`). |
+| `attribution` | `string` | `'FEMA National Flood Hazard Layer'` | Attribution added to raster sources. |
+| `featureInfo` | `boolean` | `true` | Query active layers on map click and show a popup. |
+| `onFeatureInfo` | `(result) => void` | - | Callback with each `GetFeatureInfo` result. |
+| `collapsed` | `boolean` | `true` | Start with only the toggle button visible. |
+| `position` | `string` | `'top-right'` | Control corner: `top-left`, `top-right`, `bottom-left`, `bottom-right`. |
+| `title` | `string` | `'FEMA NFHL WMS'` | Panel header title. |
+| `panelWidth` | `number` | `300` | Panel width in pixels (capped to the viewport on small screens). |
+| `className` | `string` | - | Extra CSS class for the control container. |
+
+## API
+
+```typescript
+const control = new FemaWmsControl(options);
+
+control.addLayer("12");             // add a WMS layer to the map
+control.removeLayer("12");          // remove it
+control.removeAllLayers();
+control.setLayerOpacity("12", 0.5); // 0..1
+control.zoomToLayer("12");          // fit map to the layer's bounding box
+control.setSearchQuery("flood");    // filter the layer list
+control.getLayers();                // all layers from capabilities
+control.getActiveLayers();          // layers currently on the map
+control.getCapabilities();          // parsed capabilities document
+control.getState();                 // full control state
+control.expand();                   // open the panel
+control.collapse();                 // close the panel
+
+control.on("layeradd", handler);    // events: collapse | expand | statechange |
+control.off("layeradd", handler);   //   capabilitiesload | layeradd | layerremove |
+                                    //   opacitychange | featureinfo | error
+```
+
+Low-level WMS helpers are also exported for advanced use: `fetchCapabilities`, `parseCapabilities`, `buildGetMapTileUrl`, `buildLegendUrl`, `buildGetFeatureInfoUrl`, `normalizeWmsBaseUrl`, `pickInfoFormat`, `lngLatToMeters`, and the `FEMA_NFHL_WMS_URL` constant.
+
+All option, state, and event types are exported from both entry points: `FemaWmsControlOptions`, `FemaWmsState`, `FemaWmsEvent`, `ActiveLayer`, `FeatureInfoResult`, `WmsCapabilities`, `WmsLayerInfo`, and more.
+
+## Using a different WMS service
+
+The control works with any WMS endpoint that accepts `EPSG:3857` GetMap requests:
+
+```typescript
+const control = new FemaWmsControl({
+  url: "https://example.com/geoserver/wms",
+  title: "My WMS",
+});
+```
+
+Note: the FEMA capabilities document only advertises geographic CRSs, but the server accepts `EPSG:3857` requests, which MapLibre requires for raster tiles. The control always requests `EPSG:3857`.
+
+## Dark mode
+
+The control follows the operating system theme via `prefers-color-scheme`. To force a theme regardless of the OS setting, add a `dark` or `light` class to the map container (or any ancestor):
+
+```html
+<div id="map" class="dark"></div>
+```
+
+Legend images are always rendered on a light backdrop so they stay readable in dark mode.
+
+## FEMA NFHL layers
+
+Commonly used layer names (from the NFHL WMS capabilities):
+
+| Name | Title |
+| --- | --- |
+| `12` | Flood Hazard Zones |
+| `13` | Flood Hazard Boundaries |
+| `23` | Base Flood Elevations |
+| `24` | Cross-Sections |
+| `28` | LOMAs |
+| `29` | LOMRs |
+| `30` | FIRM Panels |
+| `31` | NFHL Availability |
+
+Call `control.getLayers()` for the complete, current list.
+
+## Known limitations
+
+- Feature info popups are skipped while the map is rotated or pitched (the WMS pixel query assumes an unrotated viewport).
+- Newly added layers paint on top of previously added ones; there is no manual reordering yet.
 
 ## Build a GeoLibre plugin zip
 
@@ -35,7 +172,7 @@ npm run package:geolibre
 This creates:
 
 ```text
-geolibre-plugin/geolibre-plugin-template-0.1.0.zip
+geolibre-plugin/maplibre-gl-fema-wms-0.1.0.zip
 ```
 
 The generated zip contains:
@@ -52,8 +189,6 @@ Copy the zip into GeoLibre Desktop's app data `plugins/` directory and restart G
 ~/.local/share/org.geolibre.desktop/plugins/
 ```
 
-Customize the GeoLibre wrapper in `src/geolibre.ts` and the manifest in `geolibre-plugin/plugin.json`. The manifest `id`, `name`, and `version` must match the exported plugin in `src/geolibre.ts`.
-
 For the GeoLibre web app, serve the unpacked plugin with CORS enabled:
 
 ```bash
@@ -67,269 +202,48 @@ Then add this manifest URL in GeoLibre Settings > Plugins:
 http://localhost:8000/plugin.json
 ```
 
-Using `python -m http.server` for this cross-origin web app case is not enough
-because it does not send `Access-Control-Allow-Origin`.
-
-## Quick Start
-
-### Vanilla JavaScript/TypeScript
-
-```typescript
-import maplibregl from "maplibre-gl";
-import { PluginControl } from "geolibre-plugin-template";
-import "geolibre-plugin-template/style.css";
-
-const map = new maplibregl.Map({
-  container: "map",
-  style: "https://tiles.openfreemap.org/styles/positron",
-  center: [0, 0],
-  zoom: 2,
-});
-
-map.on("load", () => {
-  const control = new PluginControl({
-    title: "My Plugin",
-    collapsed: false,
-    panelWidth: 300,
-  });
-
-  map.addControl(control, "top-right");
-});
-```
-
-### React
-
-```tsx
-import { useEffect, useRef, useState } from "react";
-import maplibregl, { Map } from "maplibre-gl";
-import {
-  PluginControlReact,
-  usePluginState,
-} from "geolibre-plugin-template/react";
-import "geolibre-plugin-template/style.css";
-
-function App() {
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const [map, setMap] = useState<Map | null>(null);
-  const { state, toggle } = usePluginState();
-
-  useEffect(() => {
-    if (!mapContainer.current) return;
-
-    const mapInstance = new maplibregl.Map({
-      container: mapContainer.current,
-      style: "https://tiles.openfreemap.org/styles/positron",
-      center: [0, 0],
-      zoom: 2,
-    });
-
-    mapInstance.on("load", () => setMap(mapInstance));
-
-    return () => mapInstance.remove();
-  }, []);
-
-  return (
-    <div style={{ width: "100%", height: "100vh" }}>
-      <div ref={mapContainer} style={{ width: "100%", height: "100%" }} />
-      {map && (
-        <PluginControlReact
-          map={map}
-          title="My Plugin"
-          collapsed={state.collapsed}
-          onStateChange={(newState) => console.log(newState)}
-        />
-      )}
-    </div>
-  );
-}
-```
-
-## API
-
-### PluginControl
-
-The main control class implementing MapLibre's `IControl` interface.
-
-#### Constructor Options
-
-| Option       | Type      | Default            | Description                                                               |
-| ------------ | --------- | ------------------ | ------------------------------------------------------------------------- |
-| `collapsed`  | `boolean` | `true`             | Whether the panel starts collapsed (showing only the 29x29 toggle button) |
-| `position`   | `string`  | `'top-right'`      | Control position on the map                                               |
-| `title`      | `string`  | `'Plugin Control'` | Title displayed in the header                                             |
-| `panelWidth` | `number`  | `300`              | Width of the dropdown panel in pixels                                     |
-| `className`  | `string`  | `''`               | Custom CSS class name                                                     |
-
-#### Methods
-
-- `toggle()` - Toggle the collapsed state
-- `expand()` - Expand the panel
-- `collapse()` - Collapse the panel
-- `getState()` - Get the current state
-- `setState(state)` - Update the state
-- `on(event, handler)` - Register an event handler
-- `off(event, handler)` - Remove an event handler
-- `getMap()` - Get the map instance
-- `getContainer()` - Get the container element
-
-#### Events
-
-- `collapse` - Fired when the panel is collapsed
-- `expand` - Fired when the panel is expanded
-- `statechange` - Fired when the state changes
-
-### PluginControlReact
-
-React wrapper component for `PluginControl`.
-
-#### Props
-
-All `PluginControl` options plus:
-
-| Prop            | Type       | Description                         |
-| --------------- | ---------- | ----------------------------------- |
-| `map`           | `Map`      | MapLibre GL map instance (required) |
-| `onStateChange` | `function` | Callback fired when state changes   |
-
-### usePluginState
-
-Custom React hook for managing plugin state.
-
-```typescript
-const {
-  state, // Current state
-  setState, // Update entire state
-  setCollapsed, // Set collapsed state
-  setPanelWidth, // Set panel width
-  setData, // Set custom data
-  reset, // Reset to initial state
-  toggle, // Toggle collapsed state
-} = usePluginState(initialState);
-```
-
-## Utilities
-
-The package exports several utility functions:
-
-- `clamp(value, min, max)` - Clamp a value between min and max
-- `formatNumericValue(value, step)` - Format a number with appropriate decimals
-- `generateId(prefix?)` - Generate a unique ID
-- `debounce(fn, delay)` - Debounce a function
-- `throttle(fn, limit)` - Throttle a function
-- `classNames(classes)` - Build a class string from an object
+Using `python -m http.server` for this cross-origin web app case is not enough because it does not send `Access-Control-Allow-Origin`.
 
 ## Development
 
-### Setup
-
 ```bash
-# Clone the repository
-git clone https://github.com/your-username/geolibre-plugin-template.git
-cd geolibre-plugin-template
-
-# Install dependencies
 npm install
-
-# Start development server
-npm run dev
+npm run dev             # dev server with the examples
+npm test                # vitest unit tests
+npm run lint            # eslint
+npm run build           # library (ESM + CJS + types) and GeoLibre bundle
+npm run build:examples  # static example site (GitHub Pages)
 ```
 
-### Scripts
-
-| Script                     | Description                              |
-| -------------------------- | ---------------------------------------- |
-| `npm run dev`              | Start development server                 |
-| `npm run build`            | Build the library and GeoLibre bundle    |
-| `npm run build:lib`        | Build the standalone MapLibre library    |
-| `npm run build:geolibre`   | Build the GeoLibre ESM and CSS bundle    |
-| `npm run package:geolibre` | Build and zip the GeoLibre plugin bundle |
-| `npm run build:examples`   | Build examples for deployment            |
-| `npm run test`             | Run tests                                |
-| `npm run test:ui`          | Run tests with UI                        |
-| `npm run test:coverage`    | Run tests with coverage                  |
-| `npm run lint`             | Lint the code                            |
-| `npm run format`           | Format the code                          |
-
-### Project Structure
-
-```text
-geolibre-plugin-template/
-├── geolibre-plugin/
-│   └── plugin.json          # GeoLibre external plugin manifest
-├── scripts/
-│   └── package-geolibre-plugin.mjs
-├── src/
-│   ├── index.ts              # Main entry point
-│   ├── geolibre.ts           # GeoLibre plugin wrapper entry point
-│   ├── react.ts              # React entry point
-│   ├── index.css             # Root styles
-│   └── lib/
-│       ├── core/             # Core classes and types
-│       ├── hooks/            # React hooks
-│       ├── utils/            # Utility functions
-│       └── styles/           # Component styles
-├── tests/                    # Test files
-├── examples/                 # Example applications
-│   ├── basic/               # Vanilla JS example
-│   └── react/               # React example
-└── .github/workflows/        # CI/CD workflows
-```
-
-## Docker
-
-The examples can be run using Docker. The image is automatically built and published to GitHub Container Registry.
-
-### Pull and Run
+### Docker
 
 ```bash
-# Pull the latest image
-docker pull ghcr.io/opengeos/geolibre-plugin-template:latest
-
-# Run the container
-docker run -p 8080:80 ghcr.io/opengeos/geolibre-plugin-template:latest
+docker build -t maplibre-gl-fema-wms .
+docker run -p 8080:80 maplibre-gl-fema-wms
+# open http://localhost:8080/maplibre-gl-fema-wms/
 ```
 
-Then open http://localhost:8080/geolibre-plugin-template/ in your browser to view the examples.
+### Project structure
 
-### Build Locally
-
-```bash
-# Build the image
-docker build -t geolibre-plugin-template .
-
-# Run the container
-docker run -p 8080:80 geolibre-plugin-template
 ```
-
-### Available Tags
-
-| Tag      | Description                      |
-| -------- | -------------------------------- |
-| `latest` | Latest release                   |
-| `x.y.z`  | Specific version (e.g., `1.0.0`) |
-| `x.y`    | Minor version (e.g., `1.0`)      |
-
-### Publish to npm
-
-```bash
-npm login
-npm whoami
-npm publish --access public
+src/
+├── index.ts                    # Main entry point
+├── react.ts                    # React entry point
+├── geolibre.ts                 # GeoLibre Desktop plugin wrapper
+└── lib/
+    ├── core/
+    │   ├── FemaWmsControl.ts        # The WMS control
+    │   ├── FemaWmsControlReact.tsx  # React wrapper
+    │   ├── PluginControl.ts         # Generic collapsible control base
+    │   ├── wms.ts                   # WMS capabilities/URL helpers
+    │   └── types.ts                 # Shared types
+    ├── hooks/                  # React hooks
+    ├── styles/                 # Control styles (light/dark theming)
+    └── utils/                  # Generic helpers
 ```
-
-Set up Trusted Publisher on npmjs.com
-
-## Customization
-
-To use this template for your own plugin:
-
-1. Clone or fork this repository
-2. Update `package.json` with your plugin name and details
-3. Modify `src/lib/core/PluginControl.ts` to implement your plugin logic
-4. Update the styles in `src/lib/styles/plugin-control.css`
-5. Add custom utilities, hooks, or components as needed
-6. Update the README with your plugin's documentation
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT. See [LICENSE](LICENSE).
+
+FEMA NFHL data is provided by the [Federal Emergency Management Agency](https://hazards.fema.gov/). Check FEMA's terms for data usage requirements.
