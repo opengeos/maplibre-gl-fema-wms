@@ -100,19 +100,36 @@ export function normalizeWmsBaseUrl(url: string): string {
  *
  * @param baseUrl - The WMS endpoint URL (REST form is normalized automatically)
  * @param version - The WMS protocol version to request
+ * @param timeoutMs - Milliseconds before the request is aborted
  * @returns The parsed capabilities
- * @throws If the request fails or the response is not a capabilities document
+ * @throws If the request fails, times out, or the response is not a
+ *   capabilities document
  */
 export async function fetchCapabilities(
   baseUrl: string,
-  version: WmsVersion = '1.3.0'
+  version: WmsVersion = '1.3.0',
+  timeoutMs = 30000
 ): Promise<WmsCapabilities> {
   const url = `${normalizeWmsBaseUrl(baseUrl)}?service=WMS&request=GetCapabilities&version=${version}`;
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`GetCapabilities request failed: HTTP ${response.status}`);
+  // Abort the request on slow networks instead of hanging indefinitely
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) {
+      throw new Error(`GetCapabilities request failed: HTTP ${response.status}`);
+    }
+    return parseCapabilities(await response.text());
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error(`GetCapabilities request timed out after ${timeoutMs} ms`, {
+        cause: error,
+      });
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
   }
-  return parseCapabilities(await response.text());
 }
 
 /**
@@ -147,16 +164,29 @@ export function parseCapabilities(xml: string): WmsCapabilities {
 
   const layers: WmsLayerInfo[] = [];
   if (capability) {
-    for (const layerEl of descendantsByName(capability, 'Layer')) {
+    // Walk the layer tree recursively: the queryable flag is inherited from
+    // parent layers when a child does not declare it (WMS 7.2.4.7.2)
+    const walkLayer = (layerEl: Element, inheritedQueryable: boolean): void => {
+      const queryable = layerEl.hasAttribute('queryable')
+        ? layerEl.getAttribute('queryable') === '1'
+        : inheritedQueryable;
       const name = textOf(layerEl, 'Name');
-      if (!name) continue; // group layers have no Name and are not requestable
-      layers.push({
-        name,
-        title: textOf(layerEl, 'Title') || name,
-        queryable: layerEl.getAttribute('queryable') === '1',
-        legendUrl: parseLegendUrl(layerEl),
-        bbox: parseGeographicBbox(layerEl),
-      });
+      if (name) {
+        // group layers have no Name and are not requestable
+        layers.push({
+          name,
+          title: textOf(layerEl, 'Title') || name,
+          queryable,
+          legendUrl: parseLegendUrl(layerEl),
+          bbox: parseGeographicBbox(layerEl),
+        });
+      }
+      for (const child of Array.from(layerEl.children)) {
+        if (child.localName === 'Layer') walkLayer(child, queryable);
+      }
+    };
+    for (const layerEl of Array.from(capability.children)) {
+      if (layerEl.localName === 'Layer') walkLayer(layerEl, false);
     }
   }
 
@@ -240,6 +270,12 @@ export function buildLegendUrl(
 export function buildGetFeatureInfoUrl(req: FeatureInfoRequest): string {
   const version = req.version ?? '1.3.0';
   const layerList = req.layers.join(',');
+  const width = Math.max(1, Math.round(req.width));
+  const height = Math.max(1, Math.round(req.height));
+  // Clamp the pixel coordinates to [0, size - 1]; rounding near the right or
+  // bottom edge could otherwise produce out-of-range values (i === width)
+  const i = Math.min(Math.max(Math.round(req.i), 0), width - 1);
+  const j = Math.min(Math.max(Math.round(req.j), 0), height - 1);
   const params = new URLSearchParams({
     service: 'WMS',
     request: 'GetFeatureInfo',
@@ -249,11 +285,11 @@ export function buildGetFeatureInfoUrl(req: FeatureInfoRequest): string {
     styles: '',
     [version === '1.3.0' ? 'crs' : 'srs']: 'EPSG:3857',
     bbox: req.bbox3857.join(','),
-    width: String(Math.round(req.width)),
-    height: String(Math.round(req.height)),
+    width: String(width),
+    height: String(height),
     // WMS 1.3.0 uses I/J pixel params; 1.1.1 uses X/Y.
-    [version === '1.3.0' ? 'i' : 'x']: String(Math.round(req.i)),
-    [version === '1.3.0' ? 'j' : 'y']: String(Math.round(req.j)),
+    [version === '1.3.0' ? 'i' : 'x']: String(i),
+    [version === '1.3.0' ? 'j' : 'y']: String(j),
     info_format: req.infoFormat,
     feature_count: String(req.featureCount ?? 10),
   });
@@ -303,12 +339,6 @@ function firstChildByName(parent: Element | null, localName: string): Element | 
     if (child.localName === localName) return child;
   }
   return null;
-}
-
-function descendantsByName(parent: Element, localName: string): Element[] {
-  return Array.from(parent.getElementsByTagName('*')).filter(
-    (el) => el.localName === localName
-  );
 }
 
 function textOf(parent: Element | null, localName: string): string | undefined {

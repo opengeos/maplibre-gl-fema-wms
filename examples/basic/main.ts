@@ -20,7 +20,8 @@ map.addControl(new maplibregl.FullscreenControl(), 'top-right');
 // Add the FEMA WMS control when the map loads
 map.on('load', () => {
   // Create the control with custom options.
-  // Set collapsed: true to start with just the 29x29 button (like navigation control).
+  // collapsed: false starts with the panel expanded; set it to true to start
+  // with just the 29x29 button (like navigation control).
   const femaWmsControl = new FemaWmsControl({
     collapsed: false,
     panelWidth: 320,

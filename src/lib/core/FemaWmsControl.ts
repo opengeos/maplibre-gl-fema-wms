@@ -843,7 +843,9 @@ export class FemaWmsControl extends PluginControl<FemaWmsEvent> {
     if (result.infoFormat === 'text/html') {
       const frame = document.createElement('div');
       frame.className = 'fema-wms-popup-html';
-      frame.innerHTML = result.raw;
+      // The response comes from a user-configurable WMS endpoint, so the
+      // markup must be sanitized before it is attached to the document
+      frame.appendChild(sanitizeHtml(result.raw));
       if (!frame.textContent?.trim()) {
         container.appendChild(emptyMessage());
       } else {
@@ -865,6 +867,42 @@ function emptyMessage(): HTMLElement {
   p.className = 'fema-wms-popup-empty';
   p.textContent = 'No features found at this location.';
   return p;
+}
+
+/** Elements removed from sanitized GetFeatureInfo HTML. */
+const UNSAFE_HTML_TAGS = 'script, style, iframe, object, embed, link, meta, base, form';
+
+/**
+ * Sanitizes untrusted HTML (a GetFeatureInfo response from a possibly
+ * user-configured WMS endpoint) into a safe document fragment. Strips
+ * active content: script-like elements, event handler attributes, and
+ * javascript: URLs. Parsing happens in a detached document, so nothing
+ * executes or loads before sanitization.
+ *
+ * @param html - The untrusted HTML string
+ * @returns A sanitized fragment safe to attach to the document
+ */
+export function sanitizeHtml(html: string): DocumentFragment {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  doc.body.querySelectorAll(UNSAFE_HTML_TAGS).forEach((el) => el.remove());
+  doc.body.querySelectorAll('*').forEach((el) => {
+    for (const attr of Array.from(el.attributes)) {
+      const name = attr.name.toLowerCase();
+      const value = attr.value.replace(/\s/g, '').toLowerCase();
+      if (
+        name.startsWith('on') ||
+        ((name === 'href' || name === 'src' || name === 'xlink:href' || name === 'srcset') &&
+          value.startsWith('javascript:'))
+      ) {
+        el.removeAttribute(attr.name);
+      }
+    }
+  });
+  const fragment = document.createDocumentFragment();
+  while (doc.body.firstChild) {
+    fragment.appendChild(doc.body.firstChild);
+  }
+  return fragment;
 }
 
 /**

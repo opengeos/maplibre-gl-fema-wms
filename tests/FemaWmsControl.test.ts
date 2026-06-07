@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Map as MapLibreMap } from 'maplibre-gl';
-import { FemaWmsControl } from '../src/lib/core/FemaWmsControl';
+import { FemaWmsControl, sanitizeHtml } from '../src/lib/core/FemaWmsControl';
 
 const fixtureXml = readFileSync(
   resolve(__dirname, 'fixtures/nfhl-capabilities.xml'),
@@ -246,6 +246,26 @@ describe('FemaWmsControl', () => {
 
     expect(panel.style.width).toBe('360px');
     expect(control.getState().panelWidth).toBe(360);
+  });
+
+  it('sanitizes untrusted GetFeatureInfo HTML', () => {
+    const fragment = sanitizeHtml(`
+      <table><tr><th>FLD_ZONE</th><td>AE</td></tr></table>
+      <script>window.hacked = true;</script>
+      <img src="x" onerror="window.hacked = true" />
+      <a href="javascript:alert(1)">link</a>
+      <iframe src="https://evil.example"></iframe>
+    `);
+    const host = document.createElement('div');
+    host.appendChild(fragment);
+
+    expect(host.querySelector('script')).toBeNull();
+    expect(host.querySelector('iframe')).toBeNull();
+    expect(host.querySelector('img')?.hasAttribute('onerror')).toBe(false);
+    expect(host.querySelector('a')?.hasAttribute('href')).toBe(false);
+    // Legitimate table content is preserved
+    expect(host.querySelector('table')?.textContent).toContain('FLD_ZONE');
+    expect((window as unknown as { hacked?: boolean }).hacked).toBeUndefined();
   });
 
   it('shows an error status when capabilities fail to load', async () => {

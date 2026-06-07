@@ -57,9 +57,9 @@
 .plugin-control.dark,
 .plugin-control-panel.dark,
 .fema-wms-popup.dark,
-.dark .plugin-control,
-.dark .plugin-control-panel,
-.dark .fema-wms-popup {
+.dark .plugin-control:not(.light):not(.light *),
+.dark .plugin-control-panel:not(.light):not(.light *),
+.dark .fema-wms-popup:not(.light):not(.light *) {
   --fw-bg: #20262e;
   --fw-fg: #e5e7eb;
   --fw-muted: #9aa3af;
@@ -663,7 +663,7 @@
   padding: 2px 6px 2px 0;
   border-bottom: 1px solid var(--fw-border);
   font-weight: 400;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .fema-wms-popup-table th {
@@ -684,7 +684,7 @@
 .fema-wms-popup-pre {
   margin: 0;
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: anywhere;
   font-size: 11px;
 }
 

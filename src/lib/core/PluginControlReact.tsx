@@ -40,6 +40,13 @@ export function PluginControlReact({
 }: PluginControlReactProps): null {
   const controlRef = useRef<PluginControl | null>(null);
 
+  // Keep the latest callback in a ref so the statechange listener
+  // (registered once per control) never goes stale
+  const onStateChangeRef = useRef(onStateChange);
+  useEffect(() => {
+    onStateChangeRef.current = onStateChange;
+  }, [onStateChange]);
+
   useEffect(() => {
     if (!map) return;
 
@@ -47,12 +54,10 @@ export function PluginControlReact({
     const control = new PluginControl(options);
     controlRef.current = control;
 
-    // Register state change handler if provided
-    if (onStateChange) {
-      control.on("statechange", (event) => {
-        onStateChange(event.state);
-      });
-    }
+    // Register state change handler; reads the ref so prop updates apply
+    control.on("statechange", (event) => {
+      onStateChangeRef.current?.(event.state);
+    });
 
     // Add control to map
     map.addControl(control, options.position || "top-right");

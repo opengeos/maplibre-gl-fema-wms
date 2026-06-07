@@ -93,6 +93,30 @@ describe('parseCapabilities', () => {
       /arcgis\/services/
     );
   });
+
+  it('inherits queryable from parent layers when the attribute is omitted', () => {
+    const xml = `
+      <WMS_Capabilities version="1.3.0">
+        <Service><Title>t</Title></Service>
+        <Capability>
+          <Request></Request>
+          <Layer queryable="1">
+            <Title>root</Title>
+            <Layer>
+              <Name>inherits</Name>
+              <Title>Inherits Queryable</Title>
+            </Layer>
+            <Layer queryable="0">
+              <Name>overrides</Name>
+              <Title>Overrides Queryable</Title>
+            </Layer>
+          </Layer>
+        </Capability>
+      </WMS_Capabilities>`;
+    const parsed = parseCapabilities(xml);
+    expect(parsed.layers.find((l) => l.name === 'inherits')?.queryable).toBe(true);
+    expect(parsed.layers.find((l) => l.name === 'overrides')?.queryable).toBe(false);
+  });
 });
 
 describe('buildGetMapTileUrl', () => {
@@ -168,6 +192,19 @@ describe('buildGetFeatureInfoUrl', () => {
     expect(url).toContain('x=512');
     expect(url).toContain('y=384');
     expect(url).toContain('srs=EPSG%3A3857');
+  });
+
+  it('clamps i/j to valid pixel bounds at the right and bottom edges', () => {
+    const url = buildGetFeatureInfoUrl({ ...base, i: 1024.4, j: 768.6 });
+    // Rounding alone would yield i=1024 (== width) and j=769 (> height)
+    expect(url).toContain('i=1023');
+    expect(url).toContain('j=768');
+  });
+
+  it('clamps negative i/j to zero', () => {
+    const url = buildGetFeatureInfoUrl({ ...base, i: -3, j: -0.6 });
+    expect(url).toContain('i=0');
+    expect(url).toContain('j=0');
   });
 });
 

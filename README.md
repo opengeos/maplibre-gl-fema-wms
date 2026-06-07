@@ -230,7 +230,7 @@ docker run -p 8080:80 maplibre-gl-fema-wms
 
 ### Project structure
 
-```
+```text
 src/
 ├── index.ts                    # Main entry point
 ├── react.ts                    # React entry point
