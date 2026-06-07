@@ -248,6 +248,22 @@ describe('FemaWmsControl', () => {
     expect(control.getState().panelWidth).toBe(360);
   });
 
+  it('marks the container and panel with package-scoped classes', async () => {
+    const { map, container } = createMapStub();
+    const control = new FemaWmsControl();
+    const controlEl = control.onAdd(map);
+    await flushAsync();
+
+    // The control container keeps the generic template class but also carries
+    // the package marker so the scoped stylesheet only paints this plugin.
+    expect(controlEl.classList.contains('plugin-control')).toBe(true);
+    expect(controlEl.classList.contains('fema-wms-control')).toBe(true);
+
+    const panel = container.querySelector<HTMLElement>('.plugin-control-panel')!;
+    expect(panel.classList.contains('plugin-control-panel')).toBe(true);
+    expect(panel.classList.contains('fema-wms-panel')).toBe(true);
+  });
+
   it('sanitizes untrusted GetFeatureInfo HTML', () => {
     const fragment = sanitizeHtml(`
       <table><tr><th>FLD_ZONE</th><td>AE</td></tr></table>

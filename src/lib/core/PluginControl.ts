@@ -254,7 +254,7 @@ export class PluginControl<TEvent extends string = PluginControlEvent> implement
    */
   private _createContainer(): HTMLElement {
     const container = document.createElement('div');
-    container.className = `maplibregl-ctrl maplibregl-ctrl-group plugin-control${
+    container.className = `maplibregl-ctrl maplibregl-ctrl-group plugin-control fema-wms-control${
       this._options.className ? ` ${this._options.className}` : ''
     }`;
 
@@ -302,7 +302,7 @@ export class PluginControl<TEvent extends string = PluginControlEvent> implement
    */
   private _createPanel(): HTMLElement {
     const panel = document.createElement('div');
-    panel.className = 'plugin-control-panel';
+    panel.className = 'plugin-control-panel fema-wms-panel';
     panel.style.width = `${this._options.panelWidth}px`;
 
     // Create header with title and close button
