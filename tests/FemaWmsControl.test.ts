@@ -29,6 +29,10 @@ function createMapStub() {
     removeLayer: vi.fn((id: string) => layers.delete(id)),
     getLayer: (id: string) => (layers.has(id) ? {} : undefined),
     setPaintProperty: vi.fn(),
+    moveLayer: vi.fn(),
+    getStyle: () => ({
+      layers: [{ id: 'water' }, { id: 'building' }, { id: 'label-place' }],
+    }),
     fitBounds: vi.fn(),
     getBearing: () => 0,
     getPitch: () => 0,
@@ -173,6 +177,75 @@ describe('FemaWmsControl', () => {
     control.onRemove();
     expect(mocks.removeLayer).toHaveBeenCalledWith('fema-wms-12');
     expect(mocks.removeSource).toHaveBeenCalledWith('fema-wms-12');
+  });
+
+  it('inserts WMS layers before the configured beforeId', async () => {
+    const { map, mocks } = createMapStub();
+    const control = new FemaWmsControl({ beforeId: 'label-place' });
+    control.onAdd(map);
+    await flushAsync();
+
+    // beforeId only applies when the target layer exists on the map
+    control.addLayer('12');
+    expect(mocks.addLayer).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'fema-wms-12' })
+    );
+
+    // Make the target layer exist, then re-add
+    mocks.addLayer({ id: 'label-place' });
+    control.removeLayer('12');
+    control.addLayer('12');
+    expect(mocks.addLayer).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'fema-wms-12' }),
+      'label-place'
+    );
+  });
+
+  it('renders the insert-before dropdown and moves active layers on change', async () => {
+    const { map, mocks, container } = createMapStub();
+    const control = new FemaWmsControl();
+    control.onAdd(map);
+    await flushAsync();
+
+    const select = container.querySelector<HTMLSelectElement>('.fema-wms-before-select')!;
+    const options = Array.from(select.options).map((o) => o.value);
+    expect(options).toEqual(['', 'water', 'building', 'label-place']);
+
+    control.addLayer('12');
+    mocks.addLayer({ id: 'label-place' });
+    select.value = 'label-place';
+    select.dispatchEvent(new Event('change'));
+
+    expect(control.getBeforeId()).toBe('label-place');
+    expect(mocks.moveLayer).toHaveBeenCalledWith('fema-wms-12', 'label-place');
+
+    // Back to top
+    select.value = '';
+    select.dispatchEvent(new Event('change'));
+    expect(control.getBeforeId()).toBeUndefined();
+    expect(mocks.moveLayer).toHaveBeenCalledWith('fema-wms-12');
+  });
+
+  it('creates a resize handle that adjusts the panel width by dragging', async () => {
+    const { map, container } = createMapStub();
+    const control = new FemaWmsControl();
+    control.onAdd(map);
+    await flushAsync();
+
+    const panel = container.querySelector<HTMLElement>('.plugin-control-panel')!;
+    const handle = panel.querySelector<HTMLElement>('.plugin-control-resize-handle')!;
+    expect(handle).toBeTruthy();
+    expect(panel.style.width).toBe('300px');
+
+    // Default corner is top-right, so the handle sits on the left edge and
+    // dragging left (negative dx) widens the panel
+    const down = new MouseEvent('pointerdown', { clientX: 500, bubbles: true });
+    handle.dispatchEvent(down);
+    document.dispatchEvent(new MouseEvent('pointermove', { clientX: 440 }));
+    document.dispatchEvent(new MouseEvent('pointerup', {}));
+
+    expect(panel.style.width).toBe('360px');
+    expect(control.getState().panelWidth).toBe(360);
   });
 
   it('shows an error status when capabilities fail to load', async () => {

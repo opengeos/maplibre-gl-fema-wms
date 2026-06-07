@@ -13,6 +13,8 @@ A [MapLibre GL JS](https://maplibre.org/) plugin for searching and adding [FEMA 
 - **Legend display**: per-layer `GetLegendGraphic` images, loaded on demand
 - **Feature info**: click the map to query active layers via `GetFeatureInfo` and view attributes in a popup
 - **Zoom to layer extent** from the capabilities bounding box
+- **Insert before**: a dropdown (and `beforeId` option) to insert WMS layers below an existing map layer, e.g. labels
+- **Resizable panel**: drag the panel edge to adjust its width from any control corner
 - **Dark and light mode**: follows `prefers-color-scheme` automatically, or force a theme with a `dark`/`light` class
 - **Small-screen friendly**: the panel caps its size to the viewport and scrolls vertically
 - **Works with any WMS**: the FEMA NFHL endpoint is the default, but `url` accepts any WMS service
@@ -80,6 +82,7 @@ function MyMap({ map }) {
 | `version` | `'1.3.0' \| '1.1.1'` | `'1.3.0'` | WMS protocol version. |
 | `defaultLayers` | `string[]` | `[]` | Layer names to activate once capabilities load (e.g. `['12']`). |
 | `attribution` | `string` | `'FEMA National Flood Hazard Layer'` | Attribution added to raster sources. |
+| `beforeId` | `string` | - | Id of an existing map layer to insert WMS layers before (e.g. a label layer). Also selectable at runtime from the panel's "Insert before" dropdown. |
 | `featureInfo` | `boolean` | `true` | Query active layers on map click and show a popup. |
 | `onFeatureInfo` | `(result) => void` | - | Callback with each `GetFeatureInfo` result. |
 | `collapsed` | `boolean` | `true` | Start with only the toggle button visible. |
@@ -99,6 +102,8 @@ control.removeAllLayers();
 control.setLayerOpacity("12", 0.5); // 0..1
 control.zoomToLayer("12");          // fit map to the layer's bounding box
 control.setSearchQuery("flood");    // filter the layer list
+control.setBeforeId("label-place"); // insert/move WMS layers below a map layer
+control.getBeforeId();
 control.getLayers();                // all layers from capabilities
 control.getActiveLayers();          // layers currently on the map
 control.getCapabilities();          // parsed capabilities document
@@ -158,7 +163,7 @@ Call `control.getLayers()` for the complete, current list.
 ## Known limitations
 
 - Feature info popups are skipped while the map is rotated or pitched (the WMS pixel query assumes an unrotated viewport).
-- Newly added layers paint on top of previously added ones; there is no manual reordering yet.
+- WMS layers keep the order in which they were added relative to each other; use the "Insert before" dropdown or `beforeId` to position them relative to the basemap layers.
 
 ## Build a GeoLibre plugin zip
 

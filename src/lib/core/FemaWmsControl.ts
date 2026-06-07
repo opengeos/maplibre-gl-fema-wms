@@ -65,9 +65,11 @@ export class FemaWmsControl extends PluginControl<FemaWmsEvent> {
   private _capabilities?: WmsCapabilities;
   private _activeLayers: globalThis.Map<string, ActiveLayer> = new globalThis.Map();
   private _searchQuery = '';
+  private _beforeId?: string;
 
   private _statusEl?: HTMLElement;
   private _listEl?: HTMLUListElement;
+  private _beforeSelectEl?: HTMLSelectElement;
   private _popupEl?: HTMLElement;
   private _popupMoveHandler?: () => void;
   private _clickHandler?: (e: MapMouseEvent) => void;
@@ -78,13 +80,22 @@ export class FemaWmsControl extends PluginControl<FemaWmsEvent> {
    * @param options - Configuration options for the control
    */
   constructor(options?: Partial<FemaWmsControlOptions>) {
-    const { url, version, defaultLayers, attribution, featureInfo, onFeatureInfo, ...baseOptions } =
-      options ?? {};
+    const {
+      url,
+      version,
+      defaultLayers,
+      attribution,
+      beforeId,
+      featureInfo,
+      onFeatureInfo,
+      ...baseOptions
+    } = options ?? {};
     super({ title: 'FEMA NFHL WMS', ...baseOptions });
     this._url = normalizeWmsBaseUrl(url ?? FEMA_NFHL_WMS_URL);
     this._version = version ?? '1.3.0';
     this._defaultLayers = defaultLayers ?? [];
     this._attribution = attribution ?? 'FEMA National Flood Hazard Layer';
+    this._beforeId = beforeId;
     this._featureInfoEnabled = featureInfo ?? true;
     this._onFeatureInfo = onFeatureInfo;
   }
@@ -93,6 +104,9 @@ export class FemaWmsControl extends PluginControl<FemaWmsEvent> {
   onAdd(map: MapLibreMap): HTMLElement {
     const element = super.onAdd(map);
     void this._loadCapabilities();
+    // The style's layer list can change after the control is added, so
+    // rebuild the "Insert before" options whenever the panel opens
+    this.on('expand', () => this._refreshBeforeOptions());
     if (this._featureInfoEnabled) {
       this._clickHandler = (e: MapMouseEvent) => {
         void this._handleMapClick(e);
@@ -112,6 +126,7 @@ export class FemaWmsControl extends PluginControl<FemaWmsEvent> {
     this.removeAllLayers();
     this._statusEl = undefined;
     this._listEl = undefined;
+    this._beforeSelectEl = undefined;
     super.onRemove();
   }
 
@@ -126,6 +141,7 @@ export class FemaWmsControl extends PluginControl<FemaWmsEvent> {
       url: this._url,
       activeLayers: Array.from(this._activeLayers.values(), (layer) => ({ ...layer })),
       searchQuery: this._searchQuery,
+      beforeId: this._beforeId,
     };
   }
 
@@ -185,12 +201,18 @@ export class FemaWmsControl extends PluginControl<FemaWmsEvent> {
       });
     }
     if (!map.getLayer(id)) {
-      map.addLayer({
+      const spec = {
         id,
-        type: 'raster',
+        type: 'raster' as const,
         source: id,
         paint: { 'raster-opacity': opacity },
-      });
+      };
+      // Insert before the configured layer when it exists; otherwise on top
+      if (this._beforeId && map.getLayer(this._beforeId)) {
+        map.addLayer(spec, this._beforeId);
+      } else {
+        map.addLayer(spec);
+      }
     }
 
     this._activeLayers.set(name, { name, opacity, legendVisible: false });
@@ -277,6 +299,44 @@ export class FemaWmsControl extends PluginControl<FemaWmsEvent> {
     this._emit('statechange');
   }
 
+  /**
+   * Gets the map layer id that WMS layers are inserted before.
+   *
+   * @returns The layer id, or undefined when WMS layers go on top
+   */
+  getBeforeId(): string | undefined {
+    return this._beforeId;
+  }
+
+  /**
+   * Sets the map layer that WMS layers are inserted before, and moves the
+   * currently active WMS layers to that position.
+   *
+   * @param beforeId - An existing map layer id, or undefined to place WMS
+   *   layers on top
+   */
+  setBeforeId(beforeId?: string): void {
+    this._beforeId = beforeId || undefined;
+    const map = this._map;
+    if (map) {
+      const target = this._beforeId && map.getLayer(this._beforeId) ? this._beforeId : undefined;
+      for (const name of this._activeLayers.keys()) {
+        const id = this._layerId(name);
+        if (map.getLayer(id)) {
+          if (target) {
+            map.moveLayer(id, target);
+          } else {
+            map.moveLayer(id);
+          }
+        }
+      }
+    }
+    if (this._beforeSelectEl && this._beforeSelectEl.value !== (this._beforeId ?? '')) {
+      this._beforeSelectEl.value = this._beforeId ?? '';
+    }
+    this._emit('statechange');
+  }
+
   /** @inheritdoc */
   protected _getIconSvg(): string {
     // Flood/water waves icon; stroke uses currentColor so the button stays
@@ -315,6 +375,28 @@ export class FemaWmsControl extends PluginControl<FemaWmsEvent> {
     status.textContent = 'Loading layers…';
     this._statusEl = status;
 
+    // "Insert before" dropdown: pick the map layer that WMS layers are
+    // inserted before (e.g. a label layer)
+    const before = document.createElement('div');
+    before.className = 'fema-wms-before';
+
+    const beforeLabel = document.createElement('label');
+    beforeLabel.className = 'fema-wms-before-label';
+    beforeLabel.textContent = 'Insert before';
+
+    const beforeSelect = document.createElement('select');
+    beforeSelect.className = 'plugin-control-input fema-wms-before-select';
+    beforeSelect.setAttribute('aria-label', 'Insert WMS layers before map layer');
+    beforeSelect.addEventListener('change', () => {
+      this.setBeforeId(beforeSelect.value || undefined);
+    });
+    beforeLabel.htmlFor = beforeSelect.id = 'fema-wms-before-select';
+    this._beforeSelectEl = beforeSelect;
+    this._refreshBeforeOptions();
+
+    before.appendChild(beforeLabel);
+    before.appendChild(beforeSelect);
+
     // Layer list
     const list = document.createElement('ul');
     list.className = 'fema-wms-layer-list';
@@ -322,7 +404,46 @@ export class FemaWmsControl extends PluginControl<FemaWmsEvent> {
 
     content.appendChild(search);
     content.appendChild(status);
+    content.appendChild(before);
     content.appendChild(list);
+  }
+
+  /**
+   * Rebuilds the "Insert before" dropdown options from the map's current
+   * style layers, excluding the layers added by this control.
+   */
+  private _refreshBeforeOptions(): void {
+    const select = this._beforeSelectEl;
+    if (!select) return;
+
+    let layerIds: string[] = [];
+    try {
+      layerIds = (this._map?.getStyle()?.layers ?? [])
+        .map((layer) => layer.id)
+        .filter((id) => !id.startsWith(ID_PREFIX));
+    } catch {
+      // Style not loaded yet; keep the default option only
+    }
+
+    select.innerHTML = '';
+    const topOption = document.createElement('option');
+    topOption.value = '';
+    topOption.textContent = 'Top (above all layers)';
+    select.appendChild(topOption);
+
+    for (const id of layerIds) {
+      const option = document.createElement('option');
+      option.value = id;
+      option.textContent = id;
+      select.appendChild(option);
+    }
+
+    // Preserve the current choice; fall back to "Top" if the layer is gone
+    if (this._beforeId && layerIds.includes(this._beforeId)) {
+      select.value = this._beforeId;
+    } else {
+      select.value = '';
+    }
   }
 
   /**

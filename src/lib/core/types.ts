@@ -151,6 +151,14 @@ export interface FemaWmsControlOptions extends PluginControlOptions {
   attribution?: string;
 
   /**
+   * Id of an existing map layer to insert WMS layers before (e.g. a label
+   * layer so labels stay readable above the rasters). Can also be picked
+   * at runtime from the "Insert before" dropdown in the panel.
+   * @default undefined (WMS layers are added on top)
+   */
+  beforeId?: string;
+
+  /**
    * Whether clicking the map queries active layers via GetFeatureInfo
    * and shows the result in a popup.
    * @default true
@@ -173,6 +181,8 @@ export interface FemaWmsState extends PluginState {
   activeLayers: ActiveLayer[];
   /** The current search filter text. */
   searchQuery: string;
+  /** Map layer id that WMS layers are inserted before, if any. */
+  beforeId?: string;
 }
 
 /**

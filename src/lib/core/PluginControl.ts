@@ -328,10 +328,74 @@ export class PluginControl<TEvent extends string = PluginControlEvent> implement
     content.className = 'plugin-control-content';
     this._renderContent(content);
 
+    // Resize handle on the panel edge facing away from the control corner
+    const resizeHandle = document.createElement('div');
+    resizeHandle.className = 'plugin-control-resize-handle';
+    resizeHandle.setAttribute('aria-hidden', 'true');
+    resizeHandle.addEventListener('pointerdown', (e) => this._startPanelResize(e));
+
     panel.appendChild(header);
     panel.appendChild(content);
+    panel.appendChild(resizeHandle);
 
     return panel;
+  }
+
+  /**
+   * Determines which panel edge carries the resize handle: the edge facing
+   * away from the corner the control is anchored to, so dragging outward
+   * widens the panel regardless of corner.
+   *
+   * @returns The handle side
+   */
+  private _getResizeSide(): 'left' | 'right' {
+    const position = this._getControlPosition();
+    return position === 'top-left' || position === 'bottom-left' ? 'right' : 'left';
+  }
+
+  /**
+   * Starts a panel width drag-resize. Tracks pointer movement on the
+   * document until the pointer is released, then persists the width in the
+   * control state.
+   *
+   * @param e - The pointerdown event on the resize handle
+   */
+  private _startPanelResize(e: PointerEvent): void {
+    const panel = this._panel;
+    if (!panel) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const side = this._getResizeSide();
+    const startX = e.clientX;
+    const startWidth =
+      panel.getBoundingClientRect().width ||
+      parseFloat(panel.style.width) ||
+      this._options.panelWidth;
+    let currentWidth = startWidth;
+    panel.classList.add('plugin-control-panel-resizing');
+
+    const onMove = (ev: PointerEvent) => {
+      const dx = ev.clientX - startX;
+      const raw = side === 'right' ? startWidth + dx : startWidth - dx;
+      const maxWidth = Math.max(
+        (this._mapContainer?.clientWidth || window.innerWidth) - 24,
+        240
+      );
+      currentWidth = Math.min(Math.max(raw, 240), maxWidth);
+      panel.style.width = `${currentWidth}px`;
+    };
+
+    const onUp = () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      panel.classList.remove('plugin-control-panel-resizing');
+      this._state.panelWidth = Math.round(currentWidth);
+      this._emit('statechange');
+    };
+
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
   }
 
   /**
@@ -441,6 +505,14 @@ export class PluginControl<TEvent extends string = PluginControlEvent> implement
         ? mapRect.height - (buttonTop + panelOffset) - edgeMargin
         : mapRect.height - (buttonBottom + panelOffset) - edgeMargin;
     this._panel.style.maxHeight = `min(500px, ${Math.max(availableHeight, 100)}px)`;
+
+    // Place the resize handle on the edge facing away from the anchor corner
+    const resizeHandle = this._panel.querySelector('.plugin-control-resize-handle');
+    if (resizeHandle) {
+      const side = this._getResizeSide();
+      resizeHandle.classList.toggle('plugin-control-resize-handle-left', side === 'left');
+      resizeHandle.classList.toggle('plugin-control-resize-handle-right', side === 'right');
+    }
 
     switch (position) {
       case 'top-left':

@@ -80,8 +80,14 @@
  * Container and toggle button
  * ------------------------------------------------------------------------ */
 
-/* Container - matches maplibregl-ctrl styling */
-.plugin-control {
+/* Container - matches maplibregl-ctrl styling.
+   The compound selectors out-specify maplibre-gl's own
+   `.maplibregl-ctrl-group` background and `:not(:empty)` box-shadow rules,
+   which would otherwise force a white button in dark mode regardless of
+   stylesheet load order. */
+.plugin-control,
+.maplibregl-ctrl.plugin-control,
+.maplibregl-ctrl-group.plugin-control:not(:empty) {
   background: var(--fw-bg);
   border-radius: 4px;
   box-shadow: var(--fw-shadow);
@@ -104,7 +110,8 @@
   color: var(--fw-fg);
 }
 
-.plugin-control-toggle:hover {
+.plugin-control-toggle:hover,
+.maplibregl-ctrl.plugin-control button.plugin-control-toggle:not(:disabled):hover {
   background-color: var(--fw-row-hover);
 }
 
@@ -147,8 +154,9 @@
   box-sizing: border-box;
   min-width: 240px;
   /* Stay usable on small screens: never exceed the viewport.
-     The height cap is refined per position by _updatePanelPosition(). */
-  max-width: min(420px, calc(100vw - 20px));
+     The height cap is refined per position by _updatePanelPosition();
+     the width is user-resizable via the drag handle. */
+  max-width: calc(100vw - 20px);
   max-height: min(500px, calc(100vh - 80px));
   z-index: 1000;
   padding: 8px;
@@ -201,6 +209,36 @@
 
 .plugin-control-close:hover {
   color: var(--fw-fg);
+}
+
+/* Width drag-resize handle, positioned by JS on the edge facing away
+   from the control's anchor corner */
+.plugin-control-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: ew-resize;
+  touch-action: none;
+  border-radius: 4px;
+  transition: background-color 0.15s;
+}
+
+.plugin-control-resize-handle-right {
+  right: -3px;
+}
+
+.plugin-control-resize-handle-left {
+  left: -3px;
+}
+
+.plugin-control-resize-handle:hover,
+.plugin-control-panel-resizing .plugin-control-resize-handle {
+  background: color-mix(in srgb, var(--fw-accent) 40%, transparent);
+}
+
+.plugin-control-panel-resizing {
+  user-select: none;
 }
 
 /* Content scrolls within the panel; header stays visible */
@@ -352,6 +390,34 @@
 
 .fema-wms-status-error {
   color: var(--fw-error);
+}
+
+.fema-wms-before {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--fw-border);
+}
+
+.fema-wms-before-label {
+  flex: 0 0 auto;
+  color: var(--fw-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.fema-wms-before-select {
+  flex: 1 1 auto;
+  min-width: 0;
+  cursor: pointer;
+}
+
+/* Keep native dropdown options readable in dark mode */
+.fema-wms-before-select option {
+  background: var(--fw-input-bg);
+  color: var(--fw-fg);
 }
 
 .fema-wms-layer-list {
