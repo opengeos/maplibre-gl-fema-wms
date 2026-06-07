@@ -1,4 +1,5 @@
 import type { Map } from 'maplibre-gl';
+import type { WmsVersion } from './wms';
 
 /**
  * Options for configuring the PluginControl
@@ -77,4 +78,141 @@ export type PluginControlEvent = 'collapse' | 'expand' | 'statechange';
 /**
  * Event handler function type
  */
-export type PluginControlEventHandler = (event: { type: PluginControlEvent; state: PluginState }) => void;
+export type PluginControlEventHandler<TEvent extends string = PluginControlEvent> = (event: {
+  type: TEvent;
+  state: PluginState;
+}) => void;
+
+/**
+ * A WMS layer that is currently shown on the map.
+ */
+export interface ActiveLayer {
+  /** The WMS layer name (e.g. "12"). */
+  name: string;
+  /** Raster opacity between 0 and 1. */
+  opacity: number;
+  /** Whether the layer's legend is shown in the panel. */
+  legendVisible: boolean;
+}
+
+/**
+ * A single feature returned by a GetFeatureInfo request.
+ */
+export interface FeatureInfoFeature {
+  /** Feature identifier, if provided by the server. */
+  id?: string | number;
+  /** Feature attributes. */
+  properties: Record<string, unknown>;
+}
+
+/**
+ * Result of a GetFeatureInfo request triggered by a map click.
+ */
+export interface FeatureInfoResult {
+  /** The clicked location. */
+  lngLat: { lng: number; lat: number };
+  /** The WMS layer names that were queried. */
+  layers: string[];
+  /** The info format that was requested. */
+  infoFormat: string;
+  /** The raw response body. */
+  raw: string;
+  /** Parsed features when the response was GeoJSON. */
+  features?: FeatureInfoFeature[];
+}
+
+/**
+ * Options for configuring the FemaWmsControl
+ */
+export interface FemaWmsControlOptions extends PluginControlOptions {
+  /**
+   * The WMS endpoint URL. ArcGIS REST-style URLs
+   * (`.../arcgis/rest/services/...`) are normalized automatically.
+   * @default FEMA_NFHL_WMS_URL
+   */
+  url?: string;
+
+  /**
+   * The WMS protocol version to use.
+   * @default '1.3.0'
+   */
+  version?: WmsVersion;
+
+  /**
+   * Layer names to activate as soon as the capabilities have loaded.
+   * @default []
+   */
+  defaultLayers?: string[];
+
+  /**
+   * Attribution string added to the raster sources.
+   * @default 'FEMA National Flood Hazard Layer'
+   */
+  attribution?: string;
+
+  /**
+   * Id of an existing map layer to insert WMS layers before (e.g. a label
+   * layer so labels stay readable above the rasters). Can also be picked
+   * at runtime from the "Insert before" dropdown in the panel.
+   * @default undefined (WMS layers are added on top)
+   */
+  beforeId?: string;
+
+  /**
+   * Whether clicking the map queries active layers via GetFeatureInfo
+   * and shows the result in a popup.
+   * @default true
+   */
+  featureInfo?: boolean;
+
+  /**
+   * Callback fired with the result of each GetFeatureInfo request.
+   */
+  onFeatureInfo?: (result: FeatureInfoResult) => void;
+}
+
+/**
+ * State of the FemaWmsControl
+ */
+export interface FemaWmsState extends PluginState {
+  /** The normalized WMS endpoint URL. */
+  url: string;
+  /** Layers currently shown on the map. */
+  activeLayers: ActiveLayer[];
+  /** The current search filter text. */
+  searchQuery: string;
+  /** Map layer id that WMS layers are inserted before, if any. */
+  beforeId?: string;
+}
+
+/**
+ * Event types emitted by the FemaWmsControl
+ */
+export type FemaWmsEvent =
+  | PluginControlEvent
+  | 'capabilitiesload'
+  | 'layeradd'
+  | 'layerremove'
+  | 'opacitychange'
+  | 'featureinfo'
+  | 'error';
+
+/**
+ * Event handler function type for FemaWmsControl events
+ */
+export type FemaWmsEventHandler = PluginControlEventHandler<FemaWmsEvent>;
+
+/**
+ * Props for the FemaWmsControlReact wrapper component
+ */
+export interface FemaWmsControlReactProps extends FemaWmsControlOptions {
+  /**
+   * MapLibre GL map instance
+   */
+  map: Map;
+
+  /**
+   * Callback fired when the control state changes
+   */
+  onStateChange?: (state: FemaWmsState) => void;
+}

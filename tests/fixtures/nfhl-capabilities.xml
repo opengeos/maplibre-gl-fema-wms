@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WMS_Capabilities version="1.3.0"
+  xmlns="http://www.opengis.net/wms"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:esri_wms="http://www.esri.com/wms"
+  xsi:schemaLocation="http://www.opengis.net/wms http://schemas.opengis.net/wms/1.3.0/capabilities_1_3_0.xsd">
+  <Service>
+    <Name><![CDATA[WMS]]></Name>
+    <Title><![CDATA[public_NFHLWMS]]></Title>
+    <Abstract>WMS</Abstract>
+    <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://hazards.fema.gov:443/arcgis/services/public/NFHLWMS/MapServer/WMSServer?"/>
+  </Service>
+  <Capability>
+    <Request>
+      <GetCapabilities>
+        <Format>application/vnd.ogc.wms_xml</Format>
+        <Format>text/xml</Format>
+      </GetCapabilities>
+      <GetMap>
+        <Format>image/bmp</Format>
+        <Format>image/jpeg</Format>
+        <Format>image/png</Format>
+        <Format>image/png32</Format>
+        <Format>image/gif</Format>
+      </GetMap>
+      <GetFeatureInfo>
+        <Format>application/vnd.esri.wms_raw_xml</Format>
+        <Format>application/geo+json</Format>
+        <Format>text/xml</Format>
+        <Format>text/html</Format>
+        <Format>text/plain</Format>
+      </GetFeatureInfo>
+    </Request>
+    <Layer>
+      <Title><![CDATA[NFHLWMS]]></Title>
+      <CRS>CRS:84</CRS>
+      <CRS>EPSG:4326</CRS>
+      <CRS>EPSG:4269</CRS>
+      <EX_GeographicBoundingBox><westBoundLongitude>-170.848402</westBoundLongitude><eastBoundLongitude>145.832194</eastBoundLongitude><southBoundLatitude>-14.375160</southBoundLatitude><northBoundLatitude>71.502931</northBoundLatitude></EX_GeographicBoundingBox>
+      <Layer queryable="1">
+        <Name>12</Name>
+        <Title><![CDATA[Flood Hazard Zones]]></Title>
+        <Abstract><![CDATA[The S_Fld_Haz_Ar table contains information about the flood hazards within the flood risk project area.]]></Abstract>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox><westBoundLongitude>-170.848402</westBoundLongitude><eastBoundLongitude>145.832194</eastBoundLongitude><southBoundLatitude>-14.375160</southBoundLatitude><northBoundLatitude>66.610582</northBoundLatitude></EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="-170.848402" miny="-14.375160" maxx="145.832194" maxy="66.610582"/>
+        <Style>
+          <Name>default</Name>
+          <Title><![CDATA[Flood Hazard Zones]]></Title>
+          <LegendURL width="300" height="162">
+            <Format>image/png</Format>
+            <OnlineResource xlink:href="https://hazards.fema.gov:443/arcgis/services/public/NFHLWMS/MapServer/WMSServer?request=GetLegendGraphic%26version=1.3.0%26format=image/png%26layer=12" xlink:type="simple" xmlns:xlink="http://www.w3.org/1999/xlink" />
+          </LegendURL>
+        </Style>
+        <MaxScaleDenominator>34123.605094</MaxScaleDenominator>
+      </Layer>
+      <Layer queryable="1">
+        <Name>30</Name>
+        <Title><![CDATA[FIRM Panels]]></Title>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox><westBoundLongitude>-170.848594</westBoundLongitude><eastBoundLongitude>145.832418</eastBoundLongitude><southBoundLatitude>-14.376538</southBoundLatitude><northBoundLatitude>66.612350</northBoundLatitude></EX_GeographicBoundingBox>
+        <Style>
+          <Name>default</Name>
+          <Title><![CDATA[FIRM Panels]]></Title>
+          <LegendURL width="86" height="36">
+            <Format>image/png</Format>
+            <OnlineResource xlink:href="https://hazards.fema.gov:443/arcgis/services/public/NFHLWMS/MapServer/WMSServer?request=GetLegendGraphic%26version=1.3.0%26format=image/png%26layer=30" xlink:type="simple" xmlns:xlink="http://www.w3.org/1999/xlink" />
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="0">
+        <Name>31</Name>
+        <Title><![CDATA[NFHL Availability]]></Title>
+        <CRS>CRS:84</CRS>
+      </Layer>
+    </Layer>
+  </Capability>
+</WMS_Capabilities>

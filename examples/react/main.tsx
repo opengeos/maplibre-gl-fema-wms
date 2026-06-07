@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import maplibregl, { Map } from 'maplibre-gl';
-import { PluginControlReact, usePluginState } from '../../src/react';
+import { FemaWmsControlReact, usePluginState } from '../../src/react';
+import type { FemaWmsState, FeatureInfoResult } from '../../src/react';
 import '../../src/index.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -11,17 +12,17 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 function App() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<Map | null>(null);
-  const { state, toggle } = usePluginState({ collapsed: false });
+  const { state, setCollapsed, toggle } = usePluginState({ collapsed: false });
 
-  // Initialize the map
+  // Initialize the map centered on New Orleans, LA (rich NFHL coverage)
   useEffect(() => {
     if (!mapContainer.current) return;
 
     const mapInstance = new maplibregl.Map({
       container: mapContainer.current,
       style: 'https://tiles.openfreemap.org/styles/positron',
-      center: [0, 0],
-      zoom: 2,
+      center: [-90.07, 29.95],
+      zoom: 14,
     });
 
     // Add navigation controls to top-right
@@ -39,24 +40,34 @@ function App() {
     };
   }, []);
 
-  const handleStateChange = (newState: typeof state) => {
-    console.log('Plugin state changed:', newState);
+  const handleStateChange = (newState: FemaWmsState) => {
+    console.log('FEMA WMS state changed:', newState);
+    // Keep the external button label in sync when the panel is
+    // collapsed/expanded from within the control (e.g. click-outside)
+    setCollapsed(newState.collapsed);
+  };
+
+  const handleFeatureInfo = (result: FeatureInfoResult) => {
+    console.log('Feature info:', result);
   };
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
 
-      {/* External toggle button */}
+      {/* External toggle button. Stop pointerdown propagation so the
+          control's click-outside handler does not treat this button as an
+          outside click and collapse the panel before the toggle runs. */}
       <button
         onClick={toggle}
+        onPointerDown={(e) => e.stopPropagation()}
         style={{
           position: 'absolute',
           top: 10,
           left: 10,
           zIndex: 1,
           padding: '8px 16px',
-          background: '#4a90d9',
+          background: '#2f7cc4',
           color: 'white',
           border: 'none',
           borderRadius: 4,
@@ -67,14 +78,15 @@ function App() {
         {state.collapsed ? 'Expand' : 'Collapse'} Panel
       </button>
 
-      {/* Plugin control */}
+      {/* FEMA WMS control */}
       {map && (
-        <PluginControlReact
+        <FemaWmsControlReact
           map={map}
-          title="React Plugin"
           collapsed={state.collapsed}
           panelWidth={320}
+          defaultLayers={['12']}
           onStateChange={handleStateChange}
+          onFeatureInfo={handleFeatureInfo}
         />
       )}
     </div>

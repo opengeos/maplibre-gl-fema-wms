@@ -1,16 +1,16 @@
 import { useEffect, useRef } from "react";
-import { PluginControl } from "./PluginControl";
-import type { PluginControlReactProps } from "./types";
+import { FemaWmsControl } from "./FemaWmsControl";
+import type { FemaWmsControlReactProps, FemaWmsState } from "./types";
 
 /**
- * React wrapper component for PluginControl.
+ * React wrapper component for FemaWmsControl.
  *
- * This component manages the lifecycle of a PluginControl instance,
+ * This component manages the lifecycle of a FemaWmsControl instance,
  * adding it to the map on mount and removing it on unmount.
  *
  * @example
  * ```tsx
- * import { PluginControlReact } from 'maplibre-gl-fema-wms/react';
+ * import { FemaWmsControlReact } from 'maplibre-gl-fema-wms/react';
  *
  * function MyMap() {
  *   const [map, setMap] = useState<Map | null>(null);
@@ -19,10 +19,10 @@ import type { PluginControlReactProps } from "./types";
  *     <>
  *       <div ref={mapContainer} />
  *       {map && (
- *         <PluginControlReact
+ *         <FemaWmsControlReact
  *           map={map}
- *           title="My Control"
  *           collapsed={false}
+ *           defaultLayers={['12']}
  *         />
  *       )}
  *     </>
@@ -33,12 +33,12 @@ import type { PluginControlReactProps } from "./types";
  * @param props - Component props including map instance and control options
  * @returns null - This component renders nothing directly
  */
-export function PluginControlReact({
+export function FemaWmsControlReact({
   map,
   onStateChange,
   ...options
-}: PluginControlReactProps): null {
-  const controlRef = useRef<PluginControl | null>(null);
+}: FemaWmsControlReactProps): null {
+  const controlRef = useRef<FemaWmsControl | null>(null);
 
   // Keep the latest callback in a ref so the statechange listener
   // (registered once per control) never goes stale
@@ -51,12 +51,12 @@ export function PluginControlReact({
     if (!map) return;
 
     // Create the control instance
-    const control = new PluginControl(options);
+    const control = new FemaWmsControl(options);
     controlRef.current = control;
 
     // Register state change handler; reads the ref so prop updates apply
     control.on("statechange", (event) => {
-      onStateChangeRef.current?.(event.state);
+      onStateChangeRef.current?.(event.state as FemaWmsState);
     });
 
     // Add control to map

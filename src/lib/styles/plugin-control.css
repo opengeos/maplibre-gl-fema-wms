@@ -1,15 +1,96 @@
 /**
- * MapLibre GL Plugin Control Styles
+ * MapLibre GL FEMA WMS Control Styles
  *
- * This stylesheet provides the base styles for the plugin control.
- * Customize these styles to match your plugin's design.
+ * Theming uses CSS custom properties. Light values are the defaults;
+ * dark values apply automatically via prefers-color-scheme, or can be
+ * forced with a `dark` class (and back with a `light` class) on the
+ * control/panel/popup elements or any ancestor.
  */
 
-/* Container - matches maplibregl-ctrl styling */
-.plugin-control {
-  background: #fff;
+/* ---------------------------------------------------------------------------
+ * Theme tokens
+ * ------------------------------------------------------------------------ */
+
+.plugin-control,
+.plugin-control-panel,
+.fema-wms-popup {
+  --fw-bg: #ffffff;
+  --fw-fg: #1f2a37;
+  --fw-muted: #6b7280;
+  --fw-border: #e0e0e0;
+  --fw-accent: #2f7cc4;
+  --fw-accent-hover: #2565a3;
+  --fw-accent-contrast: #ffffff;
+  --fw-input-bg: #ffffff;
+  --fw-input-border: #d0d5dd;
+  --fw-row-hover: rgba(0, 0, 0, 0.045);
+  --fw-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+  --fw-scroll-thumb: #c7cdd4;
+  --fw-scroll-thumb-hover: #aab2bb;
+  --fw-error: #b3261e;
+  /* Legends are dark-on-transparent images; keep their backdrop light in
+     both themes so they stay readable. */
+  --fw-legend-bg: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  .plugin-control:not(.light):not(.light *),
+  .plugin-control-panel:not(.light):not(.light *),
+  .fema-wms-popup:not(.light):not(.light *) {
+    --fw-bg: #20262e;
+    --fw-fg: #e5e7eb;
+    --fw-muted: #9aa3af;
+    --fw-border: #3a4350;
+    --fw-accent: #6ab0f3;
+    --fw-accent-hover: #8ec2f6;
+    --fw-accent-contrast: #10151c;
+    --fw-input-bg: #161b22;
+    --fw-input-border: #3a4350;
+    --fw-row-hover: rgba(255, 255, 255, 0.07);
+    --fw-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45);
+    --fw-scroll-thumb: #4b5563;
+    --fw-scroll-thumb-hover: #5f6b7a;
+    --fw-error: #ff8a80;
+  }
+}
+
+.plugin-control.dark,
+.plugin-control-panel.dark,
+.fema-wms-popup.dark,
+.dark .plugin-control:not(.light):not(.light *),
+.dark .plugin-control-panel:not(.light):not(.light *),
+.dark .fema-wms-popup:not(.light):not(.light *) {
+  --fw-bg: #20262e;
+  --fw-fg: #e5e7eb;
+  --fw-muted: #9aa3af;
+  --fw-border: #3a4350;
+  --fw-accent: #6ab0f3;
+  --fw-accent-hover: #8ec2f6;
+  --fw-accent-contrast: #10151c;
+  --fw-input-bg: #161b22;
+  --fw-input-border: #3a4350;
+  --fw-row-hover: rgba(255, 255, 255, 0.07);
+  --fw-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45);
+  --fw-scroll-thumb: #4b5563;
+  --fw-scroll-thumb-hover: #5f6b7a;
+  --fw-error: #ff8a80;
+}
+
+/* ---------------------------------------------------------------------------
+ * Container and toggle button
+ * ------------------------------------------------------------------------ */
+
+/* Container - matches maplibregl-ctrl styling.
+   The compound selectors out-specify maplibre-gl's own
+   `.maplibregl-ctrl-group` background and `:not(:empty)` box-shadow rules,
+   which would otherwise force a white button in dark mode regardless of
+   stylesheet load order. */
+.plugin-control,
+.maplibregl-ctrl.plugin-control,
+.maplibregl-ctrl-group.plugin-control:not(:empty) {
+  background: var(--fw-bg);
   border-radius: 4px;
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--fw-shadow);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
@@ -25,11 +106,19 @@
   justify-content: center;
   cursor: pointer;
   outline: none;
-  color: #1f2a37;
+  /* The icon uses currentColor, so this keeps it readable in both themes */
+  color: var(--fw-fg);
 }
 
-.plugin-control-toggle:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+.plugin-control-toggle:hover,
+.maplibregl-ctrl.plugin-control button.plugin-control-toggle:not(:disabled):hover {
+  background-color: var(--fw-row-hover);
+}
+
+.plugin-control-toggle:focus-visible {
+  outline: 2px solid var(--fw-accent);
+  outline-offset: -2px;
+  border-radius: 4px;
 }
 
 .plugin-control-toggle .plugin-control-icon {
@@ -50,26 +139,37 @@
   fill: none;
 }
 
+/* ---------------------------------------------------------------------------
+ * Panel
+ * ------------------------------------------------------------------------ */
+
 /* Panel - positioned dynamically by JavaScript for floating behavior */
 .plugin-control-panel {
   position: absolute;
   /* Position is set dynamically by _updatePanelPosition() */
-  background: #fff;
+  background: var(--fw-bg);
+  color: var(--fw-fg);
   border-radius: 4px;
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--fw-shadow);
+  box-sizing: border-box;
   min-width: 240px;
-  max-width: 420px;
-  max-height: 500px;
-  overflow-y: auto;
+  /* Stay usable on small screens: never exceed the viewport.
+     The height cap is refined per position by _updatePanelPosition();
+     the width is user-resizable via the drag handle. */
+  max-width: calc(100vw - 20px);
+  max-height: min(500px, calc(100vh - 80px));
   z-index: 1000;
   padding: 8px;
   font-size: 12px;
   line-height: 1.4;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   display: none;
 }
 
 .plugin-control-panel.expanded {
-  display: block;
+  /* Flex column so the header stays pinned and only the content scrolls */
+  display: flex;
+  flex-direction: column;
 }
 
 /* Panel header */
@@ -79,10 +179,11 @@
   justify-content: space-between;
   gap: 10px;
   font-weight: 600;
-  color: #333;
+  color: var(--fw-fg);
   padding: 4px 0 8px 0;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--fw-border);
   margin-bottom: 8px;
+  flex: 0 0 auto;
 }
 
 .plugin-control-title {
@@ -95,7 +196,7 @@
   height: 20px;
   border: none;
   background: transparent;
-  color: #999;
+  color: var(--fw-muted);
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
@@ -107,42 +208,80 @@
 }
 
 .plugin-control-close:hover {
-  color: #333;
+  color: var(--fw-fg);
 }
 
-/* Content */
+/* Width drag-resize handle, positioned by JS on the edge facing away
+   from the control's anchor corner */
+.plugin-control-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: ew-resize;
+  touch-action: none;
+  border-radius: 4px;
+  transition: background-color 0.15s;
+}
+
+.plugin-control-resize-handle-right {
+  right: -3px;
+}
+
+.plugin-control-resize-handle-left {
+  left: -3px;
+}
+
+.plugin-control-resize-handle:hover,
+.plugin-control-panel-resizing .plugin-control-resize-handle {
+  background: color-mix(in srgb, var(--fw-accent) 40%, transparent);
+}
+
+.plugin-control-panel-resizing {
+  user-select: none;
+}
+
+/* Content scrolls within the panel; header stays visible */
 .plugin-control-content {
-  max-height: 400px;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
 }
 
 .plugin-control-placeholder {
   margin: 0;
-  color: #888;
+  color: var(--fw-muted);
   font-size: 12px;
   text-align: center;
   padding: 16px 0;
 }
 
 /* Scrollbar styling */
-.plugin-control-content::-webkit-scrollbar {
+.plugin-control-content::-webkit-scrollbar,
+.fema-wms-popup-body::-webkit-scrollbar {
   width: 6px;
 }
 
-.plugin-control-content::-webkit-scrollbar-track {
+.plugin-control-content::-webkit-scrollbar-track,
+.fema-wms-popup-body::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.plugin-control-content::-webkit-scrollbar-thumb {
-  background: #ccc;
+.plugin-control-content::-webkit-scrollbar-thumb,
+.fema-wms-popup-body::-webkit-scrollbar-thumb {
+  background: var(--fw-scroll-thumb);
   border-radius: 3px;
 }
 
-.plugin-control-content::-webkit-scrollbar-thumb:hover {
-  background: #aaa;
+.plugin-control-content::-webkit-scrollbar-thumb:hover,
+.fema-wms-popup-body::-webkit-scrollbar-thumb:hover {
+  background: var(--fw-scroll-thumb-hover);
 }
 
-/* Form elements */
+/* ---------------------------------------------------------------------------
+ * Generic form elements
+ * ------------------------------------------------------------------------ */
+
 .plugin-control-group {
   margin-bottom: 12px;
 }
@@ -156,22 +295,29 @@
   margin-bottom: 4px;
   font-size: 12px;
   font-weight: 500;
-  color: #555;
+  color: var(--fw-muted);
 }
 
 .plugin-control-input {
   width: 100%;
-  padding: 8px 10px;
-  font-size: 14px;
-  border: 1px solid #ddd;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--fw-fg);
+  background: var(--fw-input-bg);
+  border: 1px solid var(--fw-input-border);
   border-radius: 4px;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
+.plugin-control-input::placeholder {
+  color: var(--fw-muted);
+}
+
 .plugin-control-input:focus {
-  border-color: #4a90d9;
-  box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
+  border-color: var(--fw-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--fw-accent) 20%, transparent);
 }
 
 .plugin-control-button {
@@ -181,8 +327,8 @@
   padding: 8px 16px;
   font-size: 14px;
   font-weight: 500;
-  color: white;
-  background: #4a90d9;
+  color: var(--fw-accent-contrast);
+  background: var(--fw-accent);
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -190,16 +336,16 @@
 }
 
 .plugin-control-button:hover {
-  background: #3a7bc8;
+  background: var(--fw-accent-hover);
 }
 
 .plugin-control-button:focus {
-  outline: 2px solid #4a90d9;
+  outline: 2px solid var(--fw-accent);
   outline-offset: 2px;
 }
 
 .plugin-control-button:disabled {
-  background: #ccc;
+  background: var(--fw-scroll-thumb);
   cursor: not-allowed;
 }
 
@@ -217,6 +363,331 @@
 
 .plugin-control-divider {
   height: 1px;
-  background: #e0e0e0;
+  background: var(--fw-border);
   margin: 12px 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * FEMA WMS panel content
+ * ------------------------------------------------------------------------ */
+
+.fema-wms-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fema-wms-search {
+  flex: 0 0 auto;
+}
+
+.fema-wms-status {
+  flex: 0 0 auto;
+  color: var(--fw-muted);
+  font-size: 11px;
+  padding: 0 2px;
+}
+
+.fema-wms-status-error {
+  color: var(--fw-error);
+}
+
+.fema-wms-before {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--fw-border);
+}
+
+.fema-wms-before-label {
+  flex: 0 0 auto;
+  color: var(--fw-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.fema-wms-before-select {
+  flex: 1 1 auto;
+  min-width: 0;
+  cursor: pointer;
+}
+
+/* Keep native dropdown options readable in dark mode */
+.fema-wms-before-select option {
+  background: var(--fw-input-bg);
+  color: var(--fw-fg);
+}
+
+.fema-wms-layer-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.fema-wms-layer-row {
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
+.fema-wms-layer-row:hover {
+  background: var(--fw-row-hover);
+}
+
+.fema-wms-layer-row[hidden] {
+  display: none;
+}
+
+.fema-wms-layer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 24px;
+}
+
+.fema-wms-layer-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.fema-wms-layer-checkbox {
+  flex: 0 0 auto;
+  margin: 0;
+  accent-color: var(--fw-accent);
+  cursor: pointer;
+}
+
+.fema-wms-layer-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fw-fg);
+}
+
+.fema-wms-layer-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.fema-wms-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fw-muted);
+  cursor: pointer;
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.fema-wms-action svg {
+  stroke: currentColor;
+  fill: none;
+}
+
+.fema-wms-action:hover:not(:disabled) {
+  color: var(--fw-accent);
+  background: var(--fw-row-hover);
+}
+
+.fema-wms-action[aria-expanded='true'] {
+  color: var(--fw-accent);
+}
+
+.fema-wms-action:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.fema-wms-layer-body {
+  padding: 2px 0 6px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fema-wms-layer-body[hidden] {
+  display: none;
+}
+
+.fema-wms-opacity {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fema-wms-opacity-label {
+  flex: 0 0 auto;
+  color: var(--fw-muted);
+  font-size: 11px;
+}
+
+.fema-wms-opacity-slider {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  accent-color: var(--fw-accent);
+  cursor: pointer;
+}
+
+.fema-wms-opacity-value {
+  flex: 0 0 auto;
+  width: 32px;
+  text-align: right;
+  color: var(--fw-muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+}
+
+/* Legend images are dark-on-transparent PNGs; always show them on a light
+   backdrop so they remain readable in dark mode. */
+.fema-wms-legend {
+  background: var(--fw-legend-bg);
+  border: 1px solid var(--fw-border);
+  border-radius: 4px;
+  padding: 4px;
+  overflow-x: auto;
+}
+
+.fema-wms-legend[hidden] {
+  display: none;
+}
+
+.fema-wms-legend-img {
+  display: block;
+  max-width: 100%;
+}
+
+/* ---------------------------------------------------------------------------
+ * Feature info popup
+ * ------------------------------------------------------------------------ */
+
+.fema-wms-popup {
+  position: absolute;
+  /* left/top are set per click; anchor the box above the point */
+  transform: translate(-50%, calc(-100% - 10px));
+  background: var(--fw-bg);
+  color: var(--fw-fg);
+  border-radius: 6px;
+  box-shadow: var(--fw-shadow);
+  width: max-content;
+  min-width: 160px;
+  max-width: min(320px, calc(100vw - 20px));
+  z-index: 1001;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.fema-wms-popup-arrow {
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 12px;
+  height: 12px;
+  transform: translateX(-50%) rotate(45deg);
+  background: var(--fw-bg);
+}
+
+/* Flipped variant: popup opens below the clicked point */
+.fema-wms-popup-below {
+  transform: translate(-50%, 14px);
+}
+
+.fema-wms-popup-below .fema-wms-popup-arrow {
+  bottom: auto;
+  top: -6px;
+}
+
+.fema-wms-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--fw-border);
+  font-weight: 600;
+}
+
+.fema-wms-popup-close {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: var(--fw-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fema-wms-popup-close:hover {
+  color: var(--fw-fg);
+}
+
+.fema-wms-popup-body {
+  padding: 6px 8px;
+  max-height: min(240px, 40vh);
+  overflow-y: auto;
+  position: relative;
+  background: var(--fw-bg);
+  border-radius: 0 0 6px 6px;
+}
+
+.fema-wms-popup-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.fema-wms-popup-table th,
+.fema-wms-popup-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 2px 6px 2px 0;
+  border-bottom: 1px solid var(--fw-border);
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.fema-wms-popup-table th {
+  color: var(--fw-muted);
+  white-space: nowrap;
+}
+
+.fema-wms-popup-table tr:last-child th,
+.fema-wms-popup-table tr:last-child td {
+  border-bottom: none;
+}
+
+.fema-wms-popup-empty {
+  margin: 4px 0;
+  color: var(--fw-muted);
+}
+
+.fema-wms-popup-pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+
+.fema-wms-popup-html {
+  overflow-x: auto;
 }
